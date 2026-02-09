@@ -31,15 +31,11 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Docker mode uses PostgreSQL 16. The `entrypoint.sh` waits for PostgreSQL and auto-runs migrations.
+Docker mode uses PostgreSQL 16. The `entrypoint.sh` waits for PostgreSQL, auto-runs migrations, and creates a superuser if `DJANGO_SUPERUSER_*` variables are set in `.env`.
 
 Verify: http://localhost:8000/api/components/
 
-Create superuser:
-
-```bash
-docker compose exec web python manage.py createsuperuser
-```
+Admin panel: http://localhost:8000/admin/ (log in with your `DJANGO_SUPERUSER_USERNAME` / `DJANGO_SUPERUSER_PASSWORD`)
 
 ## Running Tests
 
@@ -68,8 +64,6 @@ VS Code `launch.json`:
 }
 ```
 
-PyCharm: Run > Edit Configurations > Python Debug Server > host=localhost, port=5678
-
 ### Docker debugging
 
 Create `docker-compose.override.yml`:
@@ -82,7 +76,7 @@ services:
       - "5678:5678"
 ```
 
-Then `docker compose up` and attach with the same VS Code/PyCharm config.
+Then `docker compose up` and attach with the same VS Code config.
 
 ## Project Structure
 
@@ -97,7 +91,7 @@ cperf-api/
 ├── docs/                # API reference, architecture docs
 ├── Dockerfile           # Python 3.12-slim container
 ├── docker-compose.yml   # PostgreSQL 16 + Django
-├── entrypoint.sh        # DB readiness check + migrations
+├── entrypoint.sh        # DB readiness check + migrations + superuser
 ├── manage.py            # Django management
 └── pytest.ini           # Test configuration
 ```
@@ -119,3 +113,4 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE).
 ---
 
 Last Updated: 2026-02-09
+

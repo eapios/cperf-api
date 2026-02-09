@@ -5,8 +5,9 @@ Auto-generated from all feature plans. Last updated: 2026-02-06
 ## Active Technologies
 - PostgreSQL 16 (container), SQLite 3 (local debug) (002-hardware-component-api)
 - N/A (documentation-only feature) (003-project-docs)
-
 - Python 3.12 + Django 5.1, Django REST Framework 3.15, django-environ, psycopg2-binary, debugpy (001-drf-docker-setup)
+- Python 3.12 + Django 5.1 + Django (built-in auth framework, management commands) (004-auto-superuser)
+- PostgreSQL 16 (Docker), SQLite 3 (local) — uses existing `django.contrib.auth` User model (004-auto-superuser)
 
 ## Project Structure
 
@@ -25,10 +26,9 @@ cd src; pytest; ruff check .
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
+- 004-auto-superuser: Added Python 3.12 + Django 5.1 + Django (built-in auth framework, management commands)
 - 003-project-docs: Added N/A (documentation-only feature)
 - 002-hardware-component-api: Added Python 3.12 + Django 5.1, Django REST Framework 3.15, django-environ, psycopg2-binary, debugpy
-
-- 001-drf-docker-setup: Added Python 3.12 + Django 5.1, Django REST Framework 3.15, django-environ, psycopg2-binary, debugpy
 
 <!-- MANUAL ADDITIONS START -->
 

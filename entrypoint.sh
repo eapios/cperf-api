@@ -1,10 +1,5 @@
 #!/bin/bash
-# Container entrypoint: wait for PostgreSQL, run migrations, then execute CMD
-#
-# To create a superuser:
-#   docker compose exec web python manage.py createsuperuser
-# Or in local mode:
-#   python manage.py createsuperuser
+# Container entrypoint: wait for PostgreSQL, run migrations, ensure superuser, then execute CMD
 
 set -e
 
@@ -34,6 +29,9 @@ fi
 # Apply database migrations
 echo "Applying database migrations..."
 python manage.py migrate --noinput
+
+# Create superuser from environment variables (skips if already exists or not configured)
+python manage.py ensure_superuser
 
 # Execute the main command (CMD)
 exec "$@"

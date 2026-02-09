@@ -96,7 +96,7 @@ No changes to the `components` app are needed -- the new type will appear in `/a
 
 ## Environment Configuration
 
-Settings are loaded via **django-environ** with `overrides=False`, meaning existing environment variables take priority over `.env` file values.
+Settings are loaded via **django-environ**. The settings module prefers `.env.local` (if it exists) over `.env`, with `overrides=False` so existing environment variables take priority.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -104,11 +104,15 @@ Settings are loaded via **django-environ** with `overrides=False`, meaning exist
 | `DEBUG` | `True` | Debug mode |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed host headers |
 | `DATABASE_URL` | `sqlite:///db.sqlite3` | Database connection URL |
+| `DJANGO_SUPERUSER_USERNAME` | *(none)* | Auto-create superuser username |
+| `DJANGO_SUPERUSER_PASSWORD` | *(none)* | Auto-create superuser password |
+| `DJANGO_SUPERUSER_EMAIL` | `""` | Auto-create superuser email (optional) |
 
 **Local development**: When `DATABASE_URL` is unset, Django uses SQLite at `db.sqlite3` in the project root.
 
-**Docker**: `docker-compose.yml` sets `DATABASE_URL=postgres://cperf:cperf@db:5432/cperf`. The `entrypoint.sh` script waits for PostgreSQL to become available (30 retries, 2s interval), runs migrations, then executes the container command.
+**Docker**: `docker-compose.yml` constructs `DATABASE_URL` from `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. The `entrypoint.sh` script waits for PostgreSQL to become available (30 retries, 2s interval), runs migrations, creates a superuser (if `DJANGO_SUPERUSER_*` vars are set), then executes the container command.
 
 **File conventions**:
 - `.env.example` -- Template listing all variables. Committed to the repo.
-- `.env.local` -- Local overrides. Gitignored.
+- `.env` -- Docker Compose variable substitution (contains `POSTGRES_*`, `SECRET_KEY`, etc.). Gitignored.
+- `.env.local` -- Local development overrides (no `DATABASE_URL` → SQLite). Gitignored. Preferred over `.env` by settings.

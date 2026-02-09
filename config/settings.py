@@ -8,7 +8,10 @@ env = environ.Env(
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-environ.Env.read_env(BASE_DIR / ".env", overrides=False)
+_env_file = BASE_DIR / ".env.local"
+if not _env_file.exists():
+    _env_file = BASE_DIR / ".env"
+environ.Env.read_env(_env_file, overrides=False)
 
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-dev-only-change-in-production")
 
@@ -28,6 +31,7 @@ INSTALLED_APPS = [
     "components",
     "cpu",
     "dram",
+    "config",
 ]
 
 MIDDLEWARE = [

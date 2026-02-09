@@ -11,6 +11,20 @@ Last Updated: 2026-02-09
 
 ### Added
 
+- Auto-create superuser on startup via `ensure_superuser` management command using `DJANGO_SUPERUSER_*` environment variables
+- Superuser creation runs automatically in Docker entrypoint after migrations
+
+### Changed
+
+- Removed default values for secrets in docker-compose.yml (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, SECRET_KEY, DATABASE_URL) — requires `.env` file
+- Removed `DATABASE_URL` from `.env` — now constructed in docker-compose.yml from `POSTGRES_*` vars
+- Settings now prefers `.env.local` over `.env` for local development (fixes pytest using Docker DB)
+- Added `config` to `INSTALLED_APPS` for management command discovery
+
+## [0.3.0] - 2026-02-09
+
+### Added
+
 - Project documentation: README.md, API reference, architecture docs, changelog
 - MIT License
 
