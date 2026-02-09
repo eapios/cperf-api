@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cperf}
+      POSTGRES_USER: ${POSTGRES_USER:-cperf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cperf}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cperf} -d ${POSTGRES_DB:-cperf}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-cperf}:${POSTGRES_PASSWORD:-cperf}@db:5432/${POSTGRES_DB:-cperf}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-only-change-in-production}
+      DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+
+volumes:
+  postgres_data:

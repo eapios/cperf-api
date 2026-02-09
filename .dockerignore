@@ -1,0 +1,17 @@
+.venv/
+venv/
+.git/
+__pycache__/
+*.pyc
+.env.local
+db.sqlite3
+db.sqlite3-journal
+specs/
+.vscode/
+.claude/
+.specify/
+.pytest_cache/
+htmlcov/
+.coverage
+*.md
+.gitignore
