@@ -42,6 +42,9 @@ htmlcov/
 .coverage
 coverage.xml
 
+# Claude Code
+.claude/settings.local.json
+
 # IDE
 .idea/
 *.swp
