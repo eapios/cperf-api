@@ -1,0 +1,635 @@
+openapi: 3.1.0
+info:
+  title: CPerf API
+  description: Hardware component performance API built with Django REST Framework
+  version: 0.2.0
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+paths:
+  # ── General Components Endpoint ──────────────────────────────────────
+  /components/:
+    get:
+      summary: List all components across all types
+      operationId: listComponents
+      tags: [Components]
+      parameters:
+        - name: component_type
+          in: query
+          schema:
+            type: string
+          description: Filter by component type (e.g., "cpu", "dram")
+        - name: ordering
+          in: query
+          schema:
+            type: string
+            enum: [created_at, -created_at, name, -name]
+          description: Field to order results by
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by component name
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Page number (20 items per page)
+      responses:
+        '200':
+          description: Paginated list of components (base fields only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedComponentList'
+
+  /components/{id}/:
+    parameters:
+      - $ref: '#/components/parameters/ComponentId'
+    get:
+      summary: Retrieve a component by ID (base fields only)
+      operationId: getComponent
+      tags: [Components]
+      responses:
+        '200':
+          description: Component base details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Component'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── CPU Endpoints ────────────────────────────────────────────────────
+  /cpu/:
+    get:
+      summary: List all CPU components
+      operationId: listCpuComponents
+      tags: [CPU]
+      parameters:
+        - name: ordering
+          in: query
+          schema:
+            type: string
+            enum: [created_at, -created_at, name, -name, cores, -cores, clock_speed, -clock_speed]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paginated list of CPU components
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCpuList'
+
+    post:
+      summary: Create a new CPU component
+      operationId: createCpuComponent
+      tags: [CPU]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CpuComponentCreate'
+      responses:
+        '201':
+          description: CPU component created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CpuComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /cpu/{id}/:
+    parameters:
+      - $ref: '#/components/parameters/ComponentId'
+    get:
+      summary: Retrieve a CPU component
+      operationId: getCpuComponent
+      tags: [CPU]
+      responses:
+        '200':
+          description: Full CPU component details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CpuComponent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Full update a CPU component
+      operationId: updateCpuComponent
+      tags: [CPU]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CpuComponentCreate'
+      responses:
+        '200':
+          description: CPU component updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CpuComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Partial update a CPU component
+      operationId: partialUpdateCpuComponent
+      tags: [CPU]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CpuComponentPatch'
+      responses:
+        '200':
+          description: CPU component updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CpuComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a CPU component
+      operationId: deleteCpuComponent
+      tags: [CPU]
+      responses:
+        '204':
+          description: CPU component deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── DRAM Endpoints ──────────────────────────────────────────────────
+  /dram/:
+    get:
+      summary: List all DRAM components
+      operationId: listDramComponents
+      tags: [DRAM]
+      parameters:
+        - name: ordering
+          in: query
+          schema:
+            type: string
+            enum: [created_at, -created_at, name, -name, capacity_gb, -capacity_gb, speed_mhz, -speed_mhz]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paginated list of DRAM components
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDramList'
+
+    post:
+      summary: Create a new DRAM component
+      operationId: createDramComponent
+      tags: [DRAM]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DramComponentCreate'
+      responses:
+        '201':
+          description: DRAM component created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DramComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /dram/{id}/:
+    parameters:
+      - $ref: '#/components/parameters/ComponentId'
+    get:
+      summary: Retrieve a DRAM component
+      operationId: getDramComponent
+      tags: [DRAM]
+      responses:
+        '200':
+          description: Full DRAM component details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DramComponent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Full update a DRAM component
+      operationId: updateDramComponent
+      tags: [DRAM]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DramComponentCreate'
+      responses:
+        '200':
+          description: DRAM component updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DramComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Partial update a DRAM component
+      operationId: partialUpdateDramComponent
+      tags: [DRAM]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DramComponentPatch'
+      responses:
+        '200':
+          description: DRAM component updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DramComponent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a DRAM component
+      operationId: deleteDramComponent
+      tags: [DRAM]
+      responses:
+        '204':
+          description: DRAM component deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    ComponentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the component
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NotFoundError'
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+  schemas:
+    # ── Base Component ─────────────────────────────────────────────────
+    Component:
+      type: object
+      required: [id, name, component_type, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        component_type:
+          type: string
+          maxLength: 50
+          description: Type label (e.g., "cpu", "dram")
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    PaginatedComponentList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Component'
+
+    # ── CPU Component ──────────────────────────────────────────────────
+    CpuComponent:
+      allOf:
+        - $ref: '#/components/schemas/Component'
+        - type: object
+          required: [cores, threads, clock_speed]
+          properties:
+            cores:
+              type: integer
+              minimum: 1
+              description: Number of physical cores
+            threads:
+              type: integer
+              minimum: 1
+              description: Number of logical threads
+            clock_speed:
+              type: number
+              format: decimal
+              minimum: 0.01
+              description: Base clock speed in GHz
+            boost_clock:
+              type: number
+              format: decimal
+              nullable: true
+              description: Max boost clock in GHz
+            tdp:
+              type: integer
+              nullable: true
+              minimum: 1
+              description: Thermal design power in watts
+            socket:
+              type: string
+              maxLength: 50
+              nullable: true
+              description: Socket type (e.g., "LGA1700", "AM5")
+
+    CpuComponentCreate:
+      type: object
+      required: [name, cores, threads, clock_speed]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        cores:
+          type: integer
+          minimum: 1
+        threads:
+          type: integer
+          minimum: 1
+        clock_speed:
+          type: number
+          format: decimal
+          minimum: 0.01
+        boost_clock:
+          type: number
+          format: decimal
+          nullable: true
+        tdp:
+          type: integer
+          nullable: true
+          minimum: 1
+        socket:
+          type: string
+          maxLength: 50
+          nullable: true
+
+    CpuComponentPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        cores:
+          type: integer
+          minimum: 1
+        threads:
+          type: integer
+          minimum: 1
+        clock_speed:
+          type: number
+          format: decimal
+          minimum: 0.01
+        boost_clock:
+          type: number
+          format: decimal
+          nullable: true
+        tdp:
+          type: integer
+          nullable: true
+          minimum: 1
+        socket:
+          type: string
+          maxLength: 50
+          nullable: true
+
+    PaginatedCpuList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CpuComponent'
+
+    # ── DRAM Component ─────────────────────────────────────────────────
+    DramComponent:
+      allOf:
+        - $ref: '#/components/schemas/Component'
+        - type: object
+          required: [capacity_gb, speed_mhz, ddr_type]
+          properties:
+            capacity_gb:
+              type: integer
+              minimum: 1
+              description: Memory capacity in GB
+            speed_mhz:
+              type: integer
+              minimum: 1
+              description: Memory speed in MHz
+            ddr_type:
+              type: string
+              maxLength: 10
+              description: DDR generation (e.g., "DDR4", "DDR5")
+            modules:
+              type: integer
+              minimum: 1
+              nullable: true
+              description: Number of modules in kit
+            cas_latency:
+              type: integer
+              nullable: true
+              minimum: 1
+              description: CAS latency (CL) value
+            voltage:
+              type: number
+              format: decimal
+              nullable: true
+              description: Operating voltage in V
+
+    DramComponentCreate:
+      type: object
+      required: [name, capacity_gb, speed_mhz, ddr_type]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        capacity_gb:
+          type: integer
+          minimum: 1
+        speed_mhz:
+          type: integer
+          minimum: 1
+        ddr_type:
+          type: string
+          maxLength: 10
+        modules:
+          type: integer
+          minimum: 1
+          nullable: true
+        cas_latency:
+          type: integer
+          nullable: true
+          minimum: 1
+        voltage:
+          type: number
+          format: decimal
+          nullable: true
+
+    DramComponentPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        capacity_gb:
+          type: integer
+          minimum: 1
+        speed_mhz:
+          type: integer
+          minimum: 1
+        ddr_type:
+          type: string
+          maxLength: 10
+        modules:
+          type: integer
+          minimum: 1
+          nullable: true
+        cas_latency:
+          type: integer
+          nullable: true
+          minimum: 1
+        voltage:
+          type: number
+          format: decimal
+          nullable: true
+
+    PaginatedDramList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DramComponent'
+
+    # ── Error Schemas ──────────────────────────────────────────────────
+    ValidationError:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          type: string
+      example:
+        name: ["This field is required."]
+
+    NotFoundError:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Not found."
