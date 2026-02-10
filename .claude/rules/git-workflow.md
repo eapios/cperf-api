@@ -12,6 +12,15 @@ Types: feat, fix, refactor, docs, test, chore, perf, ci
 
 Note: Attribution disabled globally via ~/.claude/settings.json.
 
+## Tagging / Release
+
+1. Update `CHANGELOG.md` — move `[Unreleased]` entries into a new version section
+2. Commit the changelog update
+3. Create the tag on that commit (`git tag vX.Y.Z`)
+4. Push commit and tag together (`git push origin main --tags`)
+
+The tag must always point to a commit that already contains the changelog for that version.
+
 ## Pull Request Workflow
 
 When creating PRs:
