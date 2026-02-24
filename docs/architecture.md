@@ -8,17 +8,19 @@ Django REST API for managing NAND-based SSD performance data. Provides full CRUD
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Language | Python 3.12 | Runtime |
-| Framework | Django 5.1 | Web framework |
-| API | Django REST Framework 3.15 | REST API toolkit |
-| Database (prod) | PostgreSQL 16 | Primary datastore (Docker) |
-| Database (dev) | SQLite 3 | Local development datastore |
-| Config | django-environ | Environment-based settings |
-| Filtering | django-filter | Queryset filtering for API |
-| DB Driver | psycopg2-binary | PostgreSQL adapter |
-| Debugging | debugpy | Remote debugger for Docker |
+
+| Component       | Technology                 | Purpose                     |
+| --------------- | -------------------------- | --------------------------- |
+| Language        | Python 3.12                | Runtime                     |
+| Framework       | Django 5.1                 | Web framework               |
+| API             | Django REST Framework 3.15 | REST API toolkit            |
+| Database (prod) | PostgreSQL 16              | Primary datastore (Docker)  |
+| Database (dev)  | SQLite 3                   | Local development datastore |
+| Config          | django-environ             | Environment-based settings  |
+| Filtering       | django-filter              | Queryset filtering for API  |
+| DB Driver       | psycopg2-binary            | PostgreSQL adapter          |
+| Debugging       | debugpy                    | Remote debugger for Docker  |
+
 
 ## Data Model
 
@@ -26,14 +28,14 @@ Django REST API for managing NAND-based SSD performance data. Provides full CRUD
 
 ### Hardware Apps
 
-**`cpu`** — 1 table
+`**cpu**` — 1 table
 
 ```
 Cpu(BaseEntity)
   bandwidth: FloatField
 ```
 
-**`dram`** — 1 table
+`**dram**` — 1 table
 
 ```
 Dram(BaseEntity)
@@ -42,7 +44,7 @@ Dram(BaseEntity)
   transfer_rate: FloatField
 ```
 
-**`nand`** — 3 tables
+`**nand**` — 3 tables
 
 ```
 Nand(BaseEntity)
@@ -77,7 +79,7 @@ NandPerf(BaseEntity)
 
 ### Properties App
 
-**`properties`** — 6 tables
+`**properties**` — 6 tables
 
 ```
 PropertyConfig
@@ -120,7 +122,7 @@ ExtendedPropertyValue
 
 ### Results App
 
-**`results`** — 5 tables
+`**results**` — 5 tables
 
 ```
 ResultProfile
@@ -168,41 +170,49 @@ Inherited by: `Cpu`, `Dram`, `Nand`, `NandInstance`, `NandPerf`, `ResultRecord`.
 
 Full CRUD (`ModelViewSet`) for each hardware type.
 
-| Endpoint | Notes |
-|----------|-------|
-| `/api/nand/` | Write: flat field names. Read: nested into 6 groups. |
-| `/api/nand-instances/` | Filter: `?nand=<id>` |
-| `/api/nand-perf/` | Filter: `?nand=<id>` |
-| `/api/cpu/` | |
-| `/api/dram/` | |
+
+| Endpoint               | Notes                                                |
+| ---------------------- | ---------------------------------------------------- |
+| `/api/nand/`           | Write: flat field names. Read: nested into 6 groups. |
+| `/api/nand-instances/` | Filter: `?nand=<id>`                                 |
+| `/api/nand-perf/`      | Filter: `?nand=<id>`                                 |
+| `/api/cpu/`            |                                                      |
+| `/api/dram/`           |                                                      |
+
 
 **Nand read/write asymmetry**: POST/PUT/PATCH accept flat field names matching the DB columns. GET responses nest fields into groups: `physical`, `endurance`, `raid`, `mapping`, `firmware`, `journal`, plus `pb_per_disk_by_channel`.
 
 **Optional query parameters on all entity detail endpoints**:
+
 - `?config_set=<id>` — includes PropertyConfigSet data in the response; omitted if not provided
 - `?include=extended_properties` — includes per-instance ExtendedPropertyValues; omitted if not provided
 
 ### Properties Endpoints
 
-| Endpoint | Notes |
-|----------|-------|
-| `/api/property-configs/` | Filter: `?model=<app_label>` (maps to content_type) |
-| `/api/config-sets/` | |
-| `/api/extended-property-sets/` | |
-| `/api/extended-properties/` | Filter: `?model=<app_label>`, `?property_set=<id>` |
-| `/api/extended-property-values/` | Filter: `?model=<app_label>`, `?object_id=<id>` |
+
+| Endpoint                         | Notes                                               |
+| -------------------------------- | --------------------------------------------------- |
+| `/api/property-configs/`         | Filter: `?model=<app_label>` (maps to content_type) |
+| `/api/config-sets/`              |                                                     |
+| `/api/extended-property-sets/`   |                                                     |
+| `/api/extended-properties/`      | Filter: `?model=<app_label>`, `?property_set=<id>`  |
+| `/api/extended-property-values/` | Filter: `?model=<app_label>`, `?object_id=<id>`     |
+
 
 ### Results Endpoints
 
-| Endpoint | Notes |
-|----------|-------|
-| `/api/result-profiles/` | |
-| `/api/result-workloads/` | |
-| `/api/result-profile-workloads/` | Filter: `?profile=<id>` |
-| `/api/result-records/` | GET, POST, DELETE only (no PUT/PATCH). Ordered by `-created_at`. |
-| `/api/result-instances/` | GET, POST, DELETE only. Filter: `?result_record=<id>` |
+
+| Endpoint                         | Notes                                                            |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `/api/result-profiles/`          |                                                                  |
+| `/api/result-workloads/`         |                                                                  |
+| `/api/result-profile-workloads/` | Filter: `?profile=<id>`                                          |
+| `/api/result-records/`           | GET, POST, DELETE only (no PUT/PATCH). Ordered by `-created_at`. |
+| `/api/result-instances/`         | GET, POST, DELETE only. Filter: `?result_record=<id>`            |
+
 
 **Common configuration across all endpoints:**
+
 - URL registration via `DefaultRouter` in each app's `urls.py`
 - `PageNumberPagination` with `PAGE_SIZE=20`
 - `DjangoFilterBackend`, `SearchFilter`, `OrderingFilter`
@@ -212,21 +222,25 @@ Full CRUD (`ModelViewSet`) for each hardware type.
 
 Settings are loaded via **django-environ**. The settings module prefers `.env.local` (if it exists) over `.env`, with `overrides=False` so existing environment variables take priority.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | Dev default provided | Django secret key |
-| `DEBUG` | `True` | Debug mode |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed host headers |
-| `DATABASE_URL` | `sqlite:///db.sqlite3` | Database connection URL |
-| `DJANGO_SUPERUSER_USERNAME` | *(none)* | Auto-create superuser username |
-| `DJANGO_SUPERUSER_PASSWORD` | *(none)* | Auto-create superuser password |
-| `DJANGO_SUPERUSER_EMAIL` | `""` | Auto-create superuser email (optional) |
+
+| Variable                    | Default                | Description                            |
+| --------------------------- | ---------------------- | -------------------------------------- |
+| `SECRET_KEY`                | Dev default provided   | Django secret key                      |
+| `DEBUG`                     | `True`                 | Debug mode                             |
+| `ALLOWED_HOSTS`             | `localhost,127.0.0.1`  | Allowed host headers                   |
+| `DATABASE_URL`              | `sqlite:///db.sqlite3` | Database connection URL                |
+| `DJANGO_SUPERUSER_USERNAME` | *(none)*               | Auto-create superuser username         |
+| `DJANGO_SUPERUSER_PASSWORD` | *(none)*               | Auto-create superuser password         |
+| `DJANGO_SUPERUSER_EMAIL`    | `""`                   | Auto-create superuser email (optional) |
+
 
 **Local development**: When `DATABASE_URL` is unset, Django uses SQLite at `db.sqlite3` in the project root.
 
-**Docker**: `docker-compose.yml` constructs `DATABASE_URL` from `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. The `entrypoint.sh` script waits for PostgreSQL to become available (30 retries, 2s interval), runs migrations, creates a superuser (if `DJANGO_SUPERUSER_*` vars are set), then executes the container command.
+**Docker**: `docker-compose.yml` constructs `DATABASE_URL` from `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. The `entrypoint.sh` script waits for PostgreSQL to become available (30 retries, 2s interval), runs migrations, creates a superuser (if `DJANGO_SUPERUSER_`* vars are set), then executes the container command.
 
 **File conventions**:
+
 - `.env.example` — Template listing all variables. Committed to the repo.
-- `.env` — Docker Compose variable substitution (contains `POSTGRES_*`, `SECRET_KEY`, etc.). Gitignored.
+- `.env` — Docker Compose variable substitution (contains `POSTGRES_`*, `SECRET_KEY`, etc.). Gitignored.
 - `.env.local` — Local development overrides (no `DATABASE_URL` → SQLite). Gitignored. Preferred over `.env` by settings.
+
