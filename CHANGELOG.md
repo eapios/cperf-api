@@ -9,6 +9,8 @@ Last Updated: 2026-02-24
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-24
+
 ### Added
 
 - `nand` app: `Nand`, `NandInstance`, `NandPerf` models with full CRUD API (`/api/nand/`, `/api/nand-instances/`, `/api/nand-perf/`)
