@@ -1,11 +1,11 @@
 from rest_framework import viewsets
 
-from cpu.models import CpuComponent
-from cpu.serializers import CpuComponentSerializer
+from cpu.models import Cpu
+from cpu.serializers import CpuSerializer
 
 
-class CpuComponentViewSet(viewsets.ModelViewSet):
-    queryset = CpuComponent.objects.all()
-    serializer_class = CpuComponentSerializer
+class CpuViewSet(viewsets.ModelViewSet):
+    queryset = Cpu.objects.all()
+    serializer_class = CpuSerializer
     search_fields = ["name"]
-    ordering_fields = ["created_at", "name", "cores", "clock_speed"]
+    ordering_fields = ["created_at", "name", "bandwidth"]

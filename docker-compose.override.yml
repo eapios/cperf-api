@@ -1,0 +1,8 @@
+# Local development overrides.
+# Exposes PostgreSQL port to the host so local pytest can connect.
+# Do NOT commit credentials or production changes here.
+
+services:
+  db:
+    ports:
+      - "5432:5432"

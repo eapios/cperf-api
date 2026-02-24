@@ -1,11 +1,11 @@
 from rest_framework import viewsets
 
-from dram.models import DramComponent
-from dram.serializers import DramComponentSerializer
+from dram.models import Dram
+from dram.serializers import DramSerializer
 
 
-class DramComponentViewSet(viewsets.ModelViewSet):
-    queryset = DramComponent.objects.all()
-    serializer_class = DramComponentSerializer
+class DramViewSet(viewsets.ModelViewSet):
+    queryset = Dram.objects.all()
+    serializer_class = DramSerializer
     search_fields = ["name"]
-    ordering_fields = ["created_at", "name", "capacity_gb", "speed_mhz"]
+    ordering_fields = ["created_at", "name", "bandwidth"]
