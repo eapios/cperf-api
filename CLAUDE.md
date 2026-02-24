@@ -1,36 +1,51 @@
 ﻿# cperf-api Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-02-06
+Last Updated: 2026-02-24
 
-## Active Technologies
-- PostgreSQL 16 (container), SQLite 3 (local debug) (002-hardware-component-api)
-- N/A (documentation-only feature) (003-project-docs)
-- Python 3.12 + Django 5.1, Django REST Framework 3.15, django-environ, psycopg2-binary, debugpy (001-drf-docker-setup)
-- Python 3.12 + Django 5.1 + Django (built-in auth framework, management commands) (004-auto-superuser)
-- PostgreSQL 16 (Docker), SQLite 3 (local) — uses existing `django.contrib.auth` User model (004-auto-superuser)
-- Python 3.12 + Django 5.1 + Django REST Framework 3.15, django-environ, django-filter, psycopg2-binary (005-model-redesign)
-- PostgreSQL 16 (Docker), SQLite 3 (local debug) (005-model-redesign)
+## Stack
+- Python 3.12 + Django 5.1 + DRF 3.15
+- django-environ, django-filter, psycopg2-binary
+- PostgreSQL 16 (Docker), SQLite 3 (local, default when `DATABASE_URL` unset)
 
 ## Project Structure
 
 ```text
-backend/
-frontend/
-tests/
+config/        # Django project package (settings, urls)
+cpu/           # CPU component app
+dram/          # DRAM component app
+nand/          # NAND component app
+properties/    # Extended properties app
+results/       # Test results app
+tests/         # pytest test suite
+docs/          # API, architecture, and TypeScript model docs
+requirements/  # base.txt + dev.txt
 ```
 
 ## Commands
 
-cd src; pytest; ruff check .
+```bash
+pytest        # run tests (config via pytest.ini)
+ruff check .  # lint
+black .       # format
+```
 
-## Code Style
+## Environment
+- Copy `.env.example` → `.env` for local dev
+- Env file priority: `.env.local` > `.env` (shell/Docker vars always win — `overrides=False`)
+- `DATABASE_URL` defaults to SQLite when unset
+- Docker requires: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `SECRET_KEY`
+- Auto-superuser on container start if `DJANGO_SUPERUSER_USERNAME` + `DJANGO_SUPERUSER_PASSWORD` set
 
-Python 3.12: Follow standard conventions
+## Docker
+```bash
+docker-compose up       # start with PostgreSQL
+docker-compose up web   # web only (requires db already running)
+```
 
-## Recent Changes
-- 005-model-redesign: Added Python 3.12 + Django 5.1 + Django REST Framework 3.15, django-environ, django-filter, psycopg2-binary
-- 004-auto-superuser: Added Python 3.12 + Django 5.1 + Django (built-in auth framework, management commands)
-- 003-project-docs: Added N/A (documentation-only feature)
+## Gotchas
+- Container entrypoint auto-runs `migrate` + `ensure_superuser` on every start
+- DRF defaults: `AllowAny` (no auth), page size 20, filter/ordering/search enabled globally
+- `DJANGO_SETTINGS_MODULE=config.settings` (set in `pytest.ini` — not needed manually for tests)
 
 <!-- MANUAL ADDITIONS START -->
 
