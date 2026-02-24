@@ -1,8 +1,8 @@
 from rest_framework.routers import DefaultRouter
 
-from dram.views import DramComponentViewSet
+from dram.views import DramViewSet
 
 router = DefaultRouter()
-router.register("", DramComponentViewSet, basename="dram")
+router.register("dram", DramViewSet, basename="dram")
 
 urlpatterns = router.urls

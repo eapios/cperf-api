@@ -1,56 +1,76 @@
-from decimal import Decimal
+from typing import Any
 
+from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
-from cpu.models import CpuComponent
+from cpu.models import Cpu
+from properties.models import ExtendedPropertyValue, PropertyConfigSet
 
 
-class CpuComponentSerializer(serializers.ModelSerializer):
+class CpuSerializer(serializers.ModelSerializer):
+    config_set = serializers.SerializerMethodField()
+    extended_properties = serializers.SerializerMethodField()
+
     class Meta:
-        model = CpuComponent
+        model = Cpu
         fields = [
-            "id",
-            "name",
-            "component_type",
-            "description",
-            "cores",
-            "threads",
-            "clock_speed",
-            "boost_clock",
-            "tdp",
-            "socket",
-            "created_at",
-            "updated_at",
+            "id", "name", "bandwidth",
+            "config_set", "extended_properties",
+            "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "component_type", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_name(self, value: str) -> str:
-        if not value.strip():
-            raise serializers.ValidationError("Name must not be blank.")
-        return value
+    def get_config_set(self, obj: Cpu) -> Any:
+        request = self.context.get("request")
+        if not request:
+            return None
+        config_set_id = request.query_params.get("config_set")
+        if not config_set_id:
+            return None
+        try:
+            cs = PropertyConfigSet.objects.prefetch_related(
+                "memberships__config"
+            ).get(pk=config_set_id)
+        except PropertyConfigSet.DoesNotExist:
+            return None
+        memberships = cs.memberships.select_related("config").order_by("index")
+        return {
+            "id": cs.id,
+            "name": cs.name,
+            "items": [
+                {
+                    "index": m.index,
+                    "config": {
+                        "id": m.config.id,
+                        "name": m.config.name,
+                        "display_text": m.config.display_text,
+                        "unit": m.config.unit,
+                        "decimal_place": m.config.decimal_place,
+                        "is_numeric": m.config.is_numeric,
+                    },
+                }
+                for m in memberships
+            ],
+        }
 
-    def validate(self, attrs: dict) -> dict:
-        cores = attrs.get("cores", getattr(self.instance, "cores", None))
-        threads = attrs.get("threads", getattr(self.instance, "threads", None))
-        clock_speed = attrs.get(
-            "clock_speed", getattr(self.instance, "clock_speed", None)
-        )
-        boost_clock = attrs.get(
-            "boost_clock", getattr(self.instance, "boost_clock", None)
-        )
-
-        if cores is not None and threads is not None and threads < cores:
-            raise serializers.ValidationError(
-                {"threads": "Threads must be greater than or equal to cores."}
-            )
-
-        if (
-            boost_clock is not None
-            and clock_speed is not None
-            and Decimal(str(boost_clock)) < Decimal(str(clock_speed))
-        ):
-            raise serializers.ValidationError(
-                {"boost_clock": "Boost clock must be greater than or equal to base clock speed."}
-            )
-
-        return attrs
+    def get_extended_properties(self, obj: Cpu) -> Any:
+        request = self.context.get("request")
+        if not request:
+            return None
+        include = request.query_params.get("include", "")
+        if "extended_properties" not in include:
+            return None
+        ct = ContentType.objects.get_for_model(Cpu)
+        values = ExtendedPropertyValue.objects.filter(
+            content_type=ct, object_id=obj.pk
+        ).select_related("extended_property")
+        return [
+            {
+                "id": v.id,
+                "property_id": v.extended_property_id,
+                "name": v.extended_property.name,
+                "is_formula": v.extended_property.is_formula,
+                "value": v.value,
+            }
+            for v in values
+        ]

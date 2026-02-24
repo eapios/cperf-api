@@ -5,9 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-Last Updated: 2026-02-10
+Last Updated: 2026-02-24
 
 ## [Unreleased]
+
+### Added
+
+- `nand` app: `Nand`, `NandInstance`, `NandPerf` models with full CRUD API (`/api/nand/`, `/api/nand-instances/`, `/api/nand-perf/`)
+- `properties` app: `PropertyConfig`, `PropertyConfigSet`, `PropertyConfigSetMembership`, `ExtendedPropertySet`, `ExtendedProperty`, `ExtendedPropertyValue` models with full CRUD API
+- `results` app: `ResultProfile`, `ResultWorkload`, `ResultProfileWorkload`, `ResultRecord`, `ResultInstance` models with API (`/api/result-*`)
+- `BaseEntity` abstract model (`name`, `created_at`, `updated_at`) shared by all hardware and result record models
+- Nand read/write asymmetry: flat DB storage, nested response groups (physical, endurance, raid, mapping, firmware, journal)
+- `?config_set=<id>` optional query param on all hardware detail endpoints — inlines ordered PropertyConfigSet
+- `?include=extended_properties` optional query param on hardware and result instance detail endpoints — inlines per-instance values
+- Per-instance `ExtendedPropertyValue` scoped by `(content_type, object_id)` GenericForeignKey
+- `ExtendedProperty` CHECK constraint: exactly one of `content_type` or `property_set` must be non-null
+- `ResultRecord` nullable hardware FKs with `SET_NULL` on delete — records survive component removal
+- 44 automated API tests covering all 5 user stories
+
+### Changed
+
+- Replaced `Cpu` and `Dram` models (previously `CpuComponent`/`DramComponent` extending `Component` via multi-table inheritance) with flat `BaseEntity` subclasses
+- `Cpu` now has only `bandwidth` field; `Dram` has `bandwidth`, `channel`, `transfer_rate`
+- `config/urls.py` updated to include `nand`, `properties`, and `results` URL namespaces; removed `components` and `sample` includes
+
+### Removed
+
+- `components` app (multi-table inheritance base + aggregate endpoint) — replaced by domain-specific apps
+- `sample` app — reference CRUD removed
+- Old multi-field `CpuComponent` and `DramComponent` models and their migrations
+
+### Infrastructure
+
+- `docker-compose.override.yml` added — exposes PostgreSQL port 5432 to host for running pytest against Docker PostgreSQL
+- `README.md` rewritten: env file table clarifying which file each mode reads, Docker-mode test instructions, updated project structure and API overview
 
 ## [0.4.0] - 2026-02-10
 
