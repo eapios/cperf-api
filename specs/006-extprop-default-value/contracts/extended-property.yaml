@@ -1,0 +1,239 @@
+openapi: "3.1.0"
+info:
+  title: Extended Property — Default Value Feature
+  version: "1.0"
+  description: >
+    Describes the contract changes introduced by feature 006-extprop-default-value.
+    Only changed/new endpoints are listed; all other property endpoints are unchanged.
+
+paths:
+
+  /api/properties/extended-properties/:
+    post:
+      summary: Create an ExtendedProperty (updated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtendedPropertyWrite'
+            examples:
+              with_default:
+                summary: Property with a numeric default
+                value:
+                  content_type: 7
+                  name: "Thermal Design Power"
+                  is_formula: false
+                  default_value: 65
+              no_default:
+                summary: Property with no default (null)
+                value:
+                  content_type: 7
+                  name: "Die Revision"
+                  is_formula: false
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtendedPropertyRead'
+
+  /api/properties/extended-properties/{id}/:
+    get:
+      summary: Retrieve an ExtendedProperty (updated — includes default_value)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtendedPropertyRead'
+              examples:
+                with_default:
+                  value:
+                    id: 5
+                    content_type: 7
+                    property_set: null
+                    name: "Thermal Design Power"
+                    is_formula: false
+                    default_value: 65
+                no_default:
+                  value:
+                    id: 6
+                    content_type: 7
+                    property_set: null
+                    name: "Die Revision"
+                    is_formula: false
+                    default_value: null
+          description: OK
+    patch:
+      summary: Update default_value
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                default_value:
+                  $ref: '#/components/schemas/AnyJSON'
+            example:
+              default_value: 0
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtendedPropertyRead'
+
+  /api/properties/extended-properties/{id}/resolve/:
+    get:
+      summary: Resolve effective value for a given instance (NEW)
+      description: >
+        Returns the effective value for the given instance: the per-instance
+        ExtendedPropertyValue if one exists, otherwise the property's
+        default_value. Satisfies SC-002 — single call, no client-side fallback.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: model
+          in: query
+          required: true
+          schema:
+            type: string
+          description: App label of the target model (e.g. `cpu`, `nand`, `dram`)
+          example: cpu
+        - name: model_name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            Model class name within the app (e.g. `cpu`, `resultworkload`).
+            Required when the app contains more than one model. If omitted,
+            the app must contain exactly one model or a 400 is returned.
+          example: cpu
+        - name: object_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: PK of the target instance
+          example: 42
+      responses:
+        "200":
+          description: Resolved value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvedValue'
+              examples:
+                per_instance:
+                  summary: Instance has a recorded value (overrides default)
+                  value:
+                    property_id: 5
+                    value: 125
+                    is_default: false
+                default_used:
+                  summary: No instance record — default returned
+                  value:
+                    property_id: 5
+                    value: 65
+                    is_default: true
+                no_default:
+                  summary: No instance record and no default defined
+                  value:
+                    property_id: 6
+                    value: null
+                    is_default: true
+        "400":
+          description: Missing/invalid query parameters, or `model` resolves to multiple models and `model_name` was not provided
+          content:
+            application/json:
+              examples:
+                missing_params:
+                  value:
+                    detail: "'model' and 'object_id' query parameters are required."
+                ambiguous_model:
+                  value:
+                    detail: "'model' matches multiple models; provide 'model_name' to disambiguate."
+        "404":
+          description: Property not found, or model app_label does not exist
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+    AnyJSON:
+      description: Any JSON-compatible value (string, number, boolean, array, object, or null)
+      oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        - type: array
+        - type: object
+        - type: "null"
+
+    ExtendedPropertyWrite:
+      type: object
+      required: [name]
+      properties:
+        content_type:
+          type: integer
+          nullable: true
+        property_set:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          maxLength: 255
+        is_formula:
+          type: boolean
+          default: false
+        default_value:
+          $ref: '#/components/schemas/AnyJSON'
+          nullable: true
+          default: null
+
+    ExtendedPropertyRead:
+      type: object
+      properties:
+        id:
+          type: integer
+        content_type:
+          type: integer
+          nullable: true
+        property_set:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        is_formula:
+          type: boolean
+        default_value:
+          $ref: '#/components/schemas/AnyJSON'
+          nullable: true
+
+    ResolvedValue:
+      type: object
+      properties:
+        property_id:
+          type: integer
+        value:
+          $ref: '#/components/schemas/AnyJSON'
+          nullable: true
+        is_default:
+          type: boolean
+          description: >
+            True if the returned value comes from ExtendedProperty.default_value
+            (i.e. no per-instance record exists). False if a per-instance record was found.

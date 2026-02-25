@@ -60,7 +60,7 @@ class ExtendedPropertySetSerializer(serializers.ModelSerializer):
 class ExtendedPropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExtendedProperty
-        fields = ["id", "content_type", "property_set", "name", "is_formula"]
+        fields = ["id", "content_type", "property_set", "name", "is_formula", "default_value"]
 
     def validate(self, attrs: dict) -> dict:
         ct = attrs.get("content_type", getattr(self.instance, "content_type", None))

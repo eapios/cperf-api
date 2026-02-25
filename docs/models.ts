@@ -231,6 +231,8 @@ export interface ExtendedPropertyDefinition {
     id: number;
     name: string;
     isFormula: boolean;
+    /** Fallback value for instances with no per-instance value record. null = no default defined. */
+    defaultValue: unknown | null;
 }
 
 /** A per-instance value for an extended property. */

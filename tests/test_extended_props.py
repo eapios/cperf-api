@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from cpu.models import Cpu
 from nand.models import Nand
+from results.models import ResultWorkload
 
 EXT_PROP_URL = "/api/extended-properties/"
 EXT_VALUE_URL = "/api/extended-property-values/"
@@ -18,6 +19,213 @@ def nand_ct(db) -> ContentType:
 @pytest.fixture
 def cpu_ct(db) -> ContentType:
     return ContentType.objects.get_for_model(Cpu)
+
+
+@pytest.fixture
+def cpu_prop(db, cpu_ct: ContentType):
+    """An entity-level ExtendedProperty bound to Cpu with default_value=65."""
+    from properties.models import ExtendedProperty
+    return ExtendedProperty.objects.create(content_type=cpu_ct, name="TDP", default_value=65)
+
+
+@pytest.fixture
+def cpu_instance(db) -> Cpu:
+    return Cpu.objects.create(name="Test CPU", bandwidth=50.0)
+
+
+# ---------------------------------------------------------------------------
+# US1 — Default Value CRUD (T005, T006)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestDefaultValueCRUD:
+    """T005, T006: default_value persisted and updatable via POST/PATCH."""
+
+    def test_post_with_default_value_persists(self, api_client: APIClient, cpu_ct: ContentType) -> None:
+        # T005
+        data = {"content_type": cpu_ct.pk, "property_set": None, "name": "Power", "is_formula": False, "default_value": 65}
+        resp = api_client.post(EXT_PROP_URL, data, format="json")
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["default_value"] == 65
+
+    def test_get_returns_default_value(self, api_client: APIClient, cpu_prop) -> None:
+        # T005 read-back
+        resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["default_value"] == 65
+
+    def test_patch_updates_default_value(self, api_client: APIClient, cpu_prop) -> None:
+        # T006
+        resp = api_client.patch(f"{EXT_PROP_URL}{cpu_prop.pk}/", {"default_value": 0}, format="json")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["default_value"] == 0
+        assert api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/").data["default_value"] == 0
+
+
+# ---------------------------------------------------------------------------
+# US1 — Resolve endpoint (T007, T008, T009, T010)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestResolveEndpoint:
+    """T007–T010: resolve action returns effective value."""
+
+    def test_resolve_returns_default_when_no_per_instance_record(
+        self, api_client: APIClient, cpu_prop, cpu_ct: ContentType
+    ) -> None:
+        # T007: default_value=65, no ExtendedPropertyValue → is_default=True
+        url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] == 65
+        assert resp.data["is_default"] is True
+        assert resp.data["property_id"] == cpu_prop.pk
+
+    def test_resolve_returns_null_when_default_value_is_null(
+        self, api_client: APIClient, cpu_ct: ContentType
+    ) -> None:
+        # T008: default_value=null, no per-instance record
+        from properties.models import ExtendedProperty
+        prop = ExtendedProperty.objects.create(content_type=cpu_ct, name="Nullable Prop", default_value=None)
+        url = f"{EXT_PROP_URL}{prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] is None
+        assert resp.data["is_default"] is True
+
+    def test_resolve_returns_400_when_model_missing(self, api_client: APIClient, cpu_prop) -> None:
+        # T009a
+        resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?object_id=1")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_resolve_returns_400_when_object_id_missing(self, api_client: APIClient, cpu_prop) -> None:
+        # T009b
+        resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_resolve_returns_404_for_unknown_model(self, api_client: APIClient, cpu_prop) -> None:
+        # T010
+        resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=nonexistent&object_id=1")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_resolve_returns_400_for_ambiguous_app_label(
+        self, api_client: APIClient, cpu_prop
+    ) -> None:
+        # C2: results app has multiple models — model_name required
+        resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=results&object_id=1")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "model_name" in resp.data["detail"]
+
+
+# ---------------------------------------------------------------------------
+# US2 — Per-instance override precedence (T011, T012, T013)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestPerInstanceOverride:
+    """T011–T013: per-instance value overrides default_value."""
+
+    def test_per_instance_value_overrides_default(
+        self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
+    ) -> None:
+        # T011: instance A has value=125, default=65 → resolve returns 125
+        from properties.models import ExtendedPropertyValue
+        ExtendedPropertyValue.objects.create(
+            extended_property=cpu_prop, content_type=cpu_ct,
+            object_id=cpu_instance.pk, value=125,
+        )
+        url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id={cpu_instance.pk}"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] == 125
+        assert resp.data["is_default"] is False
+
+    def test_instance_without_record_gets_default(
+        self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
+    ) -> None:
+        # T012: instance B (no record) gets default=65
+        url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99998"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] == 65
+        assert resp.data["is_default"] is True
+
+    def test_updating_default_does_not_affect_per_instance_value(
+        self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
+    ) -> None:
+        # T013: update default_value, per-instance record still wins
+        from properties.models import ExtendedPropertyValue
+        ExtendedPropertyValue.objects.create(
+            extended_property=cpu_prop, content_type=cpu_ct,
+            object_id=cpu_instance.pk, value=125,
+        )
+        api_client.patch(f"{EXT_PROP_URL}{cpu_prop.pk}/", {"default_value": 999}, format="json")
+        url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id={cpu_instance.pk}"
+        resp = api_client.get(url)
+        assert resp.data["value"] == 125
+        assert resp.data["is_default"] is False
+
+
+# ---------------------------------------------------------------------------
+# US3 — Formula properties support default_value (T014, T015)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestFormulaDefaultValue:
+    """T014–T015: formula properties accept and return default_value as-is."""
+
+    def test_formula_property_returns_formula_string_as_default(
+        self, api_client: APIClient, cpu_ct: ContentType
+    ) -> None:
+        # T014
+        from properties.models import ExtendedProperty
+        prop = ExtendedProperty.objects.create(
+            content_type=cpu_ct, name="Formula Prop", is_formula=True, default_value="A / B"
+        )
+        url = f"{EXT_PROP_URL}{prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] == "A / B"
+        assert resp.data["is_default"] is True
+
+    def test_formula_property_null_default_returns_null(
+        self, api_client: APIClient, cpu_ct: ContentType
+    ) -> None:
+        # T015
+        from properties.models import ExtendedProperty
+        prop = ExtendedProperty.objects.create(
+            content_type=cpu_ct, name="Formula Null Prop", is_formula=True, default_value=None
+        )
+        url = f"{EXT_PROP_URL}{prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] is None
+        assert resp.data["is_default"] is True
+
+
+# ---------------------------------------------------------------------------
+# T021 — FR-005: result-level property resolve
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestResultLevelPropertyResolve:
+    """T021: result-level ExtendedProperty (property_set binding) resolves default_value."""
+
+    def test_result_level_property_resolve_returns_default(self, api_client: APIClient) -> None:
+        from properties.models import ExtendedProperty, ExtendedPropertySet
+        eps = ExtendedPropertySet.objects.create(name="Result Props")
+        prop = ExtendedProperty.objects.create(
+            property_set=eps, name="Result Default Prop", default_value="result-default"
+        )
+        workload = ResultWorkload.objects.create(name="Host Write", type=1)
+        url = (
+            f"{EXT_PROP_URL}{prop.pk}/resolve/"
+            f"?model=results&model_name=resultworkload&object_id={workload.pk}"
+        )
+        resp = api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["value"] == "result-default"
+        assert resp.data["is_default"] is True
 
 
 @pytest.mark.django_db

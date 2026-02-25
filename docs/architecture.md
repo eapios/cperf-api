@@ -1,6 +1,6 @@
 # Architecture
 
-Last Updated: 2026-02-24
+Last Updated: 2026-02-25
 
 ## System Overview
 
@@ -107,6 +107,7 @@ ExtendedProperty
   content_type: nullable FK → ContentType  (exactly one binding required)
   property_set: nullable FK → ExtendedPropertySet
   name, is_formula
+  default_value: JSONField(null=True)  ← fallback for instances with no per-instance value record
   CHECK: exactly one of (content_type, property_set) is non-null
   UNIQUE(content_type, name) where content_type IS NOT NULL
   UNIQUE(property_set, name) where property_set IS NOT NULL

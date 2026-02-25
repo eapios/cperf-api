@@ -5,9 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-Last Updated: 2026-02-24
+Last Updated: 2026-02-25
 
 ## [Unreleased]
+
+### Added
+
+- `ExtendedProperty.default_value` (`JSONField`, nullable): fallback value for instances with no per-instance `ExtendedPropertyValue` record
+- `GET /api/extended-properties/{id}/resolve/?model=&object_id=[&model_name=]`: resolves the effective value for a given instance — returns per-instance value if present, otherwise `default_value`; `is_default` flag indicates the source
 
 ## [0.5.0] - 2026-02-24
 

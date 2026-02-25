@@ -152,6 +152,12 @@ class ExtendedProperty(models.Model):
     )
     name = models.CharField(max_length=255)
     is_formula = models.BooleanField(default=False)
+    default_value = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Fallback value for instances with no per-instance value record",
+    )
 
     class Meta:
         constraints = [

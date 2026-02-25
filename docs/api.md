@@ -1,6 +1,6 @@
 # API Reference
 
-Last Updated: 2026-02-24
+Last Updated: 2026-02-25
 
 ## Base URL
 
@@ -303,8 +303,30 @@ A single extended property definition. Must have **exactly one** binding: either
 | property_set | integer \| null | mutually exclusive with content_type |
 | name | string | |
 | is_formula | boolean | |
+| default_value | any JSON \| null | fallback for instances with no per-instance value record; null means no default defined |
 
 **Filters**: `?model=<app_label>`, `?property_set=<id>`
+
+#### `GET /api/extended-properties/{id}/resolve/`
+
+Returns the effective value for a given instance: the per-instance `ExtendedPropertyValue` if one exists, otherwise `default_value`.
+
+**Query parameters** (all required except `model_name`):
+
+| Parameter | Type | Notes |
+|-----------|------|-------|
+| model | string | App label of the target model (e.g. `cpu`, `nand`, `results`) |
+| model_name | string | Model class name — required when the app has multiple models (e.g. `resultworkload`) |
+| object_id | integer | PK of the target instance |
+
+**Response 200**:
+```json
+{ "property_id": 5, "value": 65, "is_default": true }
+```
+`is_default: true` — value comes from `default_value` (no per-instance record).
+`is_default: false` — value comes from a per-instance `ExtendedPropertyValue` record.
+
+**Errors**: `400` missing params or ambiguous `model`; `404` unknown property or model.
 
 ---
 
