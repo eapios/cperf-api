@@ -226,9 +226,14 @@ export interface PropertyConfigSet {
     items: PropertyConfigWithIndex[];
 }
 
-/** Definition of an extended property (no value — values are per-instance). */
+/**
+ * Definition of an extended property (no value — values are per-instance).
+ * content_type is always required. Use only for static or formula-based values.
+ * For per-instance variable data, add a native model field instead.
+ */
 export interface ExtendedPropertyDefinition {
     id: number;
+    contentType: number; // FK to Django ContentType — always required
     name: string;
     isFormula: boolean;
     /** Fallback value for instances with no per-instance value record. null = no default defined. */
@@ -243,10 +248,19 @@ export interface ExtendedPropertyValue {
     isFormula: boolean;
 }
 
+/** Membership of a single ExtendedProperty within an ExtendedPropertySet. */
+export interface ExtendedPropertySetMembership {
+    id: number;
+    index: number;
+    extendedProperty: ExtendedPropertyDefinition;
+}
+
+/** Named collection of ExtendedProperties linked via membership. */
 export interface ExtendedPropertySet {
-    setId: number;
-    setName: string;
-    definitions: ExtendedPropertyDefinition[];
+    id: number;
+    name: string;
+    contentType: number | null; // optional scoping to a model type
+    items: ExtendedPropertySetMembership[];
 }
 
 // ----- Nand ----- //
@@ -422,30 +436,14 @@ export interface ResultProfileWorkloadEntry {
     type: number;
     configs?: PropertyConfigSet;
     extendedPropertyDefinitions?: ExtendedPropertyDefinition[];
-    instances?: ResultInstance[];
 }
 
-/** A specific result entry — one per profile-workload per calculation record. */
-export interface ResultInstance {
-    id: number;
-    extendedProperties: ExtendedPropertyValue[];
-    createdAt: string;
-    updatedAt: string;
-}
-
-/** A saved result record with hardware inputs and produced results. */
+/** A saved result record. Stores a free-form JSON snapshot; no FK to hardware rows. */
 export interface ResultRecord {
     id: number;
     name: string;
-
-    // Hardware inputs (all optional)
-    nandId?: number;
-    nandInstanceId?: number;
-    nandPerfId?: number;
-    cpuId?: number;
-    dramId?: number;
-
-    resultInstances?: ResultInstance[];
+    /** Free-form snapshot of hardware/config at record time. null = empty record. */
+    data: Record<string, unknown> | null;
     createdAt: string;
     updatedAt: string;
 }

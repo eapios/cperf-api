@@ -75,44 +75,15 @@ class ResultProfileWorkload(models.Model):
 
 class ResultRecord(BaseEntity):
     """
-    A saved result run — captures which hardware was selected.
-    Hardware FKs are nullable; SET_NULL preserves the record on component deletion.
+    A saved result run. Stores a free-form JSON snapshot of hardware and
+    configuration at record time; no FK references to hardware rows.
     """
 
-    nand = models.ForeignKey(
-        "nand.Nand",
-        on_delete=models.SET_NULL,
+    data = models.JSONField(
         null=True,
         blank=True,
-        related_name="result_records",
-    )
-    nand_instance = models.ForeignKey(
-        "nand.NandInstance",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="result_records",
-    )
-    nand_perf = models.ForeignKey(
-        "nand.NandPerf",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="result_records",
-    )
-    cpu = models.ForeignKey(
-        "cpu.Cpu",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="result_records",
-    )
-    dram = models.ForeignKey(
-        "dram.Dram",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="result_records",
+        default=None,
+        help_text="Free-form snapshot of hardware/config at record time",
     )
 
     class Meta:
@@ -121,35 +92,3 @@ class ResultRecord(BaseEntity):
 
     def __str__(self) -> str:
         return self.name
-
-
-class ResultInstance(models.Model):
-    """
-    A specific result entry — one per profile-workload per result record.
-    Identified by (result_record, profile_workload) pair.
-    """
-
-    profile_workload = models.ForeignKey(
-        ResultProfileWorkload,
-        on_delete=models.CASCADE,
-        related_name="instances",
-    )
-    result_record = models.ForeignKey(
-        ResultRecord,
-        on_delete=models.CASCADE,
-        related_name="result_instances",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Result Instance"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["result_record", "profile_workload"],
-                name="unique_result_per_record_workload",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.result_record.name} / {self.profile_workload}"

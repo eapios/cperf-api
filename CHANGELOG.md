@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-Last Updated: 2026-02-25
+Last Updated: 2026-03-02
 
 ## [Unreleased]
 
@@ -13,6 +13,23 @@ Last Updated: 2026-02-25
 
 - `ExtendedProperty.default_value` (`JSONField`, nullable): fallback value for instances with no per-instance `ExtendedPropertyValue` record
 - `GET /api/extended-properties/{id}/resolve/?model=&object_id=[&model_name=]`: resolves the effective value for a given instance — returns per-instance value if present, otherwise `default_value`; `is_default` flag indicates the source
+- `ExtendedPropertySetMembership` model: junction table linking `ExtendedProperty` → `ExtendedPropertySet` with ordering index; one property can now belong to multiple sets
+- `GET/POST/DELETE /api/extended-property-set-memberships/`: CRUD for set memberships
+- `ExtendedPropertySet` API response now includes nested `items` array (memberships ordered by `index`)
+- `?set=<set_id>` filter on `GET /api/extended-properties/` — returns properties belonging to a specific set
+- `ResultRecord.data` (`JSONField`, nullable): free-form snapshot of hardware/config at record time
+
+### Changed
+
+- `ExtendedProperty.content_type` is now always required (non-nullable); the old dual-mode binding (entity-level vs set-level via `property_set`) is replaced by membership table
+- `GET /api/extended-properties/`: `?property_set=<id>` filter replaced by `?set=<set_id>`
+
+### Removed
+
+- `ResultInstance` model and `GET/POST/DELETE /api/result-instances/` endpoint
+- `ResultRecord` hardware FK fields (`nand`, `nand_instance`, `nand_perf`, `cpu`, `dram`) — replaced by `data` JSONField
+- `ExtendedProperty.property_set` FK field — replaced by `ExtendedPropertySetMembership`
+- `ExtendedProperty` CHECK constraint `extended_prop_single_binding` (exactly one of content_type/property_set)
 
 ## [0.5.0] - 2026-02-24
 

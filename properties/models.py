@@ -107,8 +107,8 @@ class PropertyConfigSetMembership(models.Model):
 
 class ExtendedPropertySet(models.Model):
     """
-    A named collection of ExtendedProperties for result-level grouping.
-    content_type is nullable — set for result-level sets, null for entity-level.
+    A named collection of ExtendedProperties.
+    content_type is optional — used to scope the set to a specific model type.
     """
 
     name = models.CharField(max_length=255)
@@ -129,26 +129,19 @@ class ExtendedProperty(models.Model):
     """
     Definition of a user-defined computed/constant property.
 
-    Two binding modes (exactly one must be set via CHECK constraint):
-    - Entity-level: content_type is set, property_set is null.
-    - Result-level: content_type is null, property_set is set.
+    Always bound to a content_type (required). Belongs to zero or more
+    ExtendedPropertySets via ExtendedPropertySetMembership.
+
+    Use only for static or formula-based values (e.g. formulas, fixed constants,
+    default values). For properties that differ per hardware instance, add a
+    native model field to the relevant Django model instead.
     """
 
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name="extended_properties",
-        help_text="Model type binding for entity-level props. Null for result-level.",
-    )
-    property_set = models.ForeignKey(
-        ExtendedPropertySet,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="properties",
-        help_text="Set binding for result-level props. Null for entity-level.",
+        help_text="Model type this property is bound to (e.g. Nand, Cpu, ResultWorkload).",
     )
     name = models.CharField(max_length=255)
     is_formula = models.BooleanField(default=False)
@@ -163,25 +156,45 @@ class ExtendedProperty(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["content_type", "name"],
-                condition=models.Q(content_type__isnull=False),
                 name="unique_extended_prop_per_model_type",
-            ),
-            models.UniqueConstraint(
-                fields=["property_set", "name"],
-                condition=models.Q(property_set__isnull=False),
-                name="unique_extended_prop_per_set",
-            ),
-            models.CheckConstraint(
-                condition=(
-                    models.Q(content_type__isnull=False, property_set__isnull=True)
-                    | models.Q(content_type__isnull=True, property_set__isnull=False)
-                ),
-                name="extended_prop_single_binding",
             ),
         ]
 
     def __str__(self) -> str:
         return self.name
+
+
+class ExtendedPropertySetMembership(models.Model):
+    """
+    Through model for ExtendedPropertySet ↔ ExtendedProperty M2M.
+    Stores the display order (index) of a property within a specific set.
+    """
+
+    property_set = models.ForeignKey(
+        ExtendedPropertySet, on_delete=models.CASCADE, related_name="memberships"
+    )
+    extended_property = models.ForeignKey(
+        ExtendedProperty, on_delete=models.CASCADE, related_name="memberships"
+    )
+    index = models.PositiveIntegerField(
+        help_text="Display order of this property within the set"
+    )
+
+    class Meta:
+        ordering = ["index"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["property_set", "extended_property"],
+                name="unique_extended_prop_in_set",
+            ),
+            models.UniqueConstraint(
+                fields=["property_set", "index"],
+                name="unique_index_in_extended_set",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.property_set.name}[{self.index}] = {self.extended_property.name}"
 
 
 class ExtendedPropertyValue(models.Model):

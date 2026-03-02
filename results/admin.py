@@ -1,7 +1,6 @@
 from django.contrib import admin
 
 from results.models import (
-    ResultInstance,
     ResultProfile,
     ResultProfileWorkload,
     ResultRecord,
@@ -29,13 +28,6 @@ class ResultProfileWorkloadAdmin(admin.ModelAdmin):
 
 @admin.register(ResultRecord)
 class ResultRecordAdmin(admin.ModelAdmin):
-    list_display = ["name", "nand", "cpu", "dram", "created_at"]
+    list_display = ["name", "created_at"]
     search_fields = ["name"]
-    readonly_fields = ["id", "created_at", "updated_at"]
-
-
-@admin.register(ResultInstance)
-class ResultInstanceAdmin(admin.ModelAdmin):
-    list_display = ["result_record", "profile_workload", "created_at"]
-    list_filter = ["result_record"]
     readonly_fields = ["id", "created_at", "updated_at"]

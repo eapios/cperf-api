@@ -1,6 +1,6 @@
 # API Reference
 
-Last Updated: 2026-02-25
+Last Updated: 2026-03-02
 
 ## Base URL
 
@@ -46,6 +46,7 @@ Validation errors return **400** with field-level messages.
 | `/api/property-configs/` | GET, POST, PUT, PATCH, DELETE | Column/field configuration definitions |
 | `/api/config-sets/` | GET, POST, PUT, PATCH, DELETE | Ordered sets of property configs |
 | `/api/extended-property-sets/` | GET, POST, PUT, PATCH, DELETE | Named sets of extended properties |
+| `/api/extended-property-set-memberships/` | GET, POST, DELETE | Links a property to a set with an ordering index |
 | `/api/extended-properties/` | GET, POST, PUT, PATCH, DELETE | Extended property definitions |
 | `/api/extended-property-values/` | GET, POST, PUT, PATCH, DELETE | Per-instance extended property values |
 
@@ -57,7 +58,6 @@ Validation errors return **400** with field-level messages.
 | `/api/result-workloads/` | GET, POST, PUT, PATCH, DELETE | Workload definitions |
 | `/api/result-profile-workloads/` | GET, POST, PUT, PATCH, DELETE | Profile ↔ workload links |
 | `/api/result-records/` | GET, POST, DELETE | Result runs (no PUT/PATCH) |
-| `/api/result-instances/` | GET, POST, DELETE | Per-workload result entries (no PUT/PATCH) |
 
 ---
 
@@ -282,30 +282,54 @@ Each item in `items`:
 
 ### ExtendedPropertySet
 
-A named group of extended properties, optionally scoped to a content type.
+A named group of extended properties, optionally scoped to a content type. Members are linked via `ExtendedPropertySetMembership`.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | integer | read-only |
 | name | string | |
 | content_type | integer \| null | optional scoping |
+| items | array | nested memberships ordered by `index` |
+
+Each item in `items`:
+
+```json
+{ "id": 1, "index": 0, "extended_property": { "id": 3, "content_type": 7, "name": "Latency", "is_formula": true, "default_value": "=A/B" } }
+```
+
+---
+
+### ExtendedPropertySetMembership
+
+Links one `ExtendedProperty` to one `ExtendedPropertySet` with an ordering index. The same property may belong to multiple sets. **No PUT/PATCH** — delete and recreate to reorder.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | integer | read-only |
+| property_set_id | integer (write) | set to add the property to |
+| extended_property_id | integer (write) | property to add |
+| index | integer | display order within the set |
+| extended_property | object (read) | nested ExtendedProperty definition |
+
+UNIQUE constraints: `(property_set, extended_property)`, `(property_set, index)`.
 
 ---
 
 ### ExtendedProperty
 
-A single extended property definition. Must have **exactly one** binding: either `content_type` (entity-level) or `property_set` (set-level). Setting both or neither returns **400**.
+A single extended property definition. `content_type` is **always required**. A property belongs to zero or more `ExtendedPropertySet`s via `ExtendedPropertySetMembership`.
+
+**Usage policy**: Use only for values that are static or formula-based across most instances (e.g. formulas, fixed constants). For values that differ per hardware instance, add a native model field instead.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | integer | read-only |
-| content_type | integer \| null | mutually exclusive with property_set |
-| property_set | integer \| null | mutually exclusive with content_type |
-| name | string | |
+| content_type | integer (FK) | required — model type this property is bound to |
+| name | string | UNIQUE per content_type |
 | is_formula | boolean | |
 | default_value | any JSON \| null | fallback for instances with no per-instance value record; null means no default defined |
 
-**Filters**: `?model=<app_label>`, `?property_set=<id>`
+**Filters**: `?model=<app_label>`, `?set=<set_id>`
 
 #### `GET /api/extended-properties/{id}/resolve/`
 
@@ -387,47 +411,18 @@ Links a workload to a profile. UNIQUE per `(profile, workload)`.
 
 ### ResultRecord
 
-A result run capturing the hardware configuration used. Hardware FKs are nullable and use `SET_NULL` on delete — the record is preserved if hardware is deleted. Ordered by `-created_at`. **No PUT/PATCH** (immutable after creation).
+A result run. Stores a free-form JSON snapshot of hardware and configuration at record time; no FK references to hardware rows. Ordered by `-created_at`. **No PUT/PATCH** (immutable after creation).
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | integer | read-only |
 | name | string | |
-| nand | integer \| null | FK → Nand |
-| nand_instance | integer \| null | FK → NandInstance |
-| nand_perf | integer \| null | FK → NandPerf |
-| cpu | integer \| null | FK → Cpu |
-| dram | integer \| null | FK → Dram |
+| data | any JSON \| null | free-form snapshot of hardware/config; null = empty record |
 | created_at | datetime | read-only |
 | updated_at | datetime | read-only |
 
----
-
-### ResultInstance
-
-One result entry per profile-workload per result record. UNIQUE per `(result_record, profile_workload)`. **No PUT/PATCH**.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| id | integer | read-only |
-| result_record | integer (FK) | |
-| profile_workload | integer (FK) | |
-| extended_properties | array \| null | via `?include=extended_properties` |
-| created_at | datetime | read-only |
-| updated_at | datetime | read-only |
-
-**Filter**: `?result_record=<id>`
-
-Extended properties response format (when included):
+**Example request**:
 
 ```json
-[
-  {
-    "id": 1,
-    "property_id": 3,
-    "name": "Time",
-    "is_formula": true,
-    "value": "=E1*F1"
-  }
-]
+{ "name": "run-001", "data": { "nand": { "name": "BiCS8", "capacity_per_die": 1099511627776 }, "cpu": { "name": "A100" } } }
 ```

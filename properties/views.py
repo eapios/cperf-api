@@ -8,12 +8,14 @@ from rest_framework.response import Response
 from properties.models import (
     ExtendedProperty,
     ExtendedPropertySet,
+    ExtendedPropertySetMembership,
     ExtendedPropertyValue,
     PropertyConfig,
     PropertyConfigSet,
 )
 from properties.serializers import (
     ExtendedPropertySerializer,
+    ExtendedPropertySetMembershipSerializer,
     ExtendedPropertySetSerializer,
     ExtendedPropertyValueSerializer,
     PropertyConfigSerializer,
@@ -69,7 +71,9 @@ class ExtendedPropertySetFilter(ModelTypeFilter):
 
 
 class ExtendedPropertySetViewSet(viewsets.ModelViewSet):
-    queryset = ExtendedPropertySet.objects.all()
+    queryset = ExtendedPropertySet.objects.select_related("content_type").prefetch_related(
+        "memberships__extended_property"
+    ).all()
     serializer_class = ExtendedPropertySetSerializer
     filterset_class = ExtendedPropertySetFilter
     search_fields = ["name"]
@@ -77,7 +81,7 @@ class ExtendedPropertySetViewSet(viewsets.ModelViewSet):
 
 class ExtendedPropertyFilter(django_filters.FilterSet):
     model = django_filters.CharFilter(method="filter_by_model")
-    property_set = django_filters.NumberFilter(field_name="property_set")
+    set = django_filters.NumberFilter(method="filter_by_set")
 
     def filter_by_model(self, queryset, name, value):
         try:
@@ -85,6 +89,9 @@ class ExtendedPropertyFilter(django_filters.FilterSet):
             return queryset.filter(content_type=ct)
         except ContentType.DoesNotExist:
             return queryset.none()
+
+    def filter_by_set(self, queryset, name, value):
+        return queryset.filter(memberships__property_set_id=value)
 
     class Meta:
         model = ExtendedProperty
@@ -150,3 +157,11 @@ class ExtendedPropertyValueViewSet(viewsets.ModelViewSet):
     queryset = ExtendedPropertyValue.objects.select_related("extended_property").all()
     serializer_class = ExtendedPropertyValueSerializer
     filterset_class = ExtendedPropertyValueFilter
+
+
+class ExtendedPropertySetMembershipViewSet(viewsets.ModelViewSet):
+    queryset = ExtendedPropertySetMembership.objects.select_related(
+        "property_set", "extended_property"
+    ).all()
+    serializer_class = ExtendedPropertySetMembershipSerializer
+    http_method_names = ["get", "post", "delete", "head", "options"]

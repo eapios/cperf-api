@@ -3,6 +3,7 @@ from rest_framework import serializers
 from properties.models import (
     ExtendedProperty,
     ExtendedPropertySet,
+    ExtendedPropertySetMembership,
     ExtendedPropertyValue,
     PropertyConfig,
     PropertyConfigSet,
@@ -49,27 +50,42 @@ class PropertyConfigSetSerializer(serializers.ModelSerializer):
 
 # --- ExtendedPropertySet ---
 
-class ExtendedPropertySetSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ExtendedPropertySet
-        fields = ["id", "name", "content_type"]
-
-
-# --- ExtendedProperty ---
-
 class ExtendedPropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExtendedProperty
-        fields = ["id", "content_type", "property_set", "name", "is_formula", "default_value"]
+        fields = ["id", "content_type", "name", "is_formula", "default_value"]
 
-    def validate(self, attrs: dict) -> dict:
-        ct = attrs.get("content_type", getattr(self.instance, "content_type", None))
-        ps = attrs.get("property_set", getattr(self.instance, "property_set", None))
-        if bool(ct) == bool(ps):
-            raise serializers.ValidationError(
-                "Exactly one of content_type or property_set must be set."
-            )
-        return attrs
+
+# --- ExtendedPropertySetMembership (nested inside set) ---
+
+class ExtendedPropertySetMembershipSerializer(serializers.ModelSerializer):
+    extended_property = ExtendedPropertySerializer(read_only=True)
+    extended_property_id = serializers.PrimaryKeyRelatedField(
+        queryset=ExtendedProperty.objects.all(),
+        source="extended_property",
+        write_only=True,
+    )
+    property_set_id = serializers.PrimaryKeyRelatedField(
+        queryset=ExtendedPropertySet.objects.all(),
+        source="property_set",
+        write_only=True,
+    )
+
+    class Meta:
+        model = ExtendedPropertySetMembership
+        fields = ["id", "index", "extended_property", "extended_property_id", "property_set_id"]
+
+
+# --- ExtendedPropertySet ---
+
+class ExtendedPropertySetSerializer(serializers.ModelSerializer):
+    items = ExtendedPropertySetMembershipSerializer(
+        source="memberships", many=True, read_only=True
+    )
+
+    class Meta:
+        model = ExtendedPropertySet
+        fields = ["id", "name", "content_type", "items"]
 
 
 # --- ExtendedPropertyValue ---

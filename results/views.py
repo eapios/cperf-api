@@ -2,14 +2,12 @@ import django_filters
 from rest_framework import viewsets
 
 from results.models import (
-    ResultInstance,
     ResultProfile,
     ResultProfileWorkload,
     ResultRecord,
     ResultWorkload,
 )
 from results.serializers import (
-    ResultInstanceSerializer,
     ResultProfileSerializer,
     ResultProfileWorkloadSerializer,
     ResultRecordSerializer,
@@ -50,19 +48,4 @@ class ResultRecordViewSet(viewsets.ModelViewSet):
     serializer_class = ResultRecordSerializer
     search_fields = ["name"]
     ordering_fields = ["created_at", "name"]
-    http_method_names = ["get", "post", "delete", "head", "options"]
-
-
-class ResultInstanceFilter(django_filters.FilterSet):
-    result_record = django_filters.NumberFilter(field_name="result_record")
-
-    class Meta:
-        model = ResultInstance
-        fields = ["result_record"]
-
-
-class ResultInstanceViewSet(viewsets.ModelViewSet):
-    queryset = ResultInstance.objects.all()
-    serializer_class = ResultInstanceSerializer
-    filterset_class = ResultInstanceFilter
     http_method_names = ["get", "post", "delete", "head", "options"]

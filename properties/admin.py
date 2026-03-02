@@ -3,6 +3,7 @@ from django.contrib import admin
 from properties.models import (
     ExtendedProperty,
     ExtendedPropertySet,
+    ExtendedPropertySetMembership,
     ExtendedPropertyValue,
     PropertyConfig,
     PropertyConfigSet,
@@ -37,10 +38,16 @@ class ExtendedPropertySetAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
 
+@admin.register(ExtendedPropertySetMembership)
+class ExtendedPropertySetMembershipAdmin(admin.ModelAdmin):
+    list_display = ["property_set", "extended_property", "index"]
+    list_filter = ["property_set"]
+
+
 @admin.register(ExtendedProperty)
 class ExtendedPropertyAdmin(admin.ModelAdmin):
-    list_display = ["name", "content_type", "property_set", "is_formula"]
-    list_filter = ["content_type", "property_set", "is_formula"]
+    list_display = ["name", "content_type", "is_formula"]
+    list_filter = ["content_type", "is_formula"]
     search_fields = ["name"]
 
 

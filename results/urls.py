@@ -1,7 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
 from results.views import (
-    ResultInstanceViewSet,
     ResultProfileViewSet,
     ResultProfileWorkloadViewSet,
     ResultRecordViewSet,
@@ -13,6 +12,5 @@ router.register("result-profiles", ResultProfileViewSet, basename="result-profil
 router.register("result-workloads", ResultWorkloadViewSet, basename="result-workload")
 router.register("result-profile-workloads", ResultProfileWorkloadViewSet, basename="result-profile-workload")
 router.register("result-records", ResultRecordViewSet, basename="result-record")
-router.register("result-instances", ResultInstanceViewSet, basename="result-instance")
 
 urlpatterns = router.urls

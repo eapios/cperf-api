@@ -9,6 +9,8 @@ from results.models import ResultWorkload
 
 EXT_PROP_URL = "/api/extended-properties/"
 EXT_VALUE_URL = "/api/extended-property-values/"
+EXT_SET_URL = "/api/extended-property-sets/"
+EXT_MEMBERSHIP_URL = "/api/extended-property-set-memberships/"
 
 
 @pytest.fixture
@@ -43,7 +45,7 @@ class TestDefaultValueCRUD:
 
     def test_post_with_default_value_persists(self, api_client: APIClient, cpu_ct: ContentType) -> None:
         # T005
-        data = {"content_type": cpu_ct.pk, "property_set": None, "name": "Power", "is_formula": False, "default_value": 65}
+        data = {"content_type": cpu_ct.pk, "name": "Power", "is_formula": False, "default_value": 65}
         resp = api_client.post(EXT_PROP_URL, data, format="json")
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["default_value"] == 65
@@ -73,7 +75,6 @@ class TestResolveEndpoint:
     def test_resolve_returns_default_when_no_per_instance_record(
         self, api_client: APIClient, cpu_prop, cpu_ct: ContentType
     ) -> None:
-        # T007: default_value=65, no ExtendedPropertyValue → is_default=True
         url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
         resp = api_client.get(url)
         assert resp.status_code == status.HTTP_200_OK
@@ -84,7 +85,6 @@ class TestResolveEndpoint:
     def test_resolve_returns_null_when_default_value_is_null(
         self, api_client: APIClient, cpu_ct: ContentType
     ) -> None:
-        # T008: default_value=null, no per-instance record
         from properties.models import ExtendedProperty
         prop = ExtendedProperty.objects.create(content_type=cpu_ct, name="Nullable Prop", default_value=None)
         url = f"{EXT_PROP_URL}{prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99999"
@@ -94,24 +94,20 @@ class TestResolveEndpoint:
         assert resp.data["is_default"] is True
 
     def test_resolve_returns_400_when_model_missing(self, api_client: APIClient, cpu_prop) -> None:
-        # T009a
         resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?object_id=1")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_resolve_returns_400_when_object_id_missing(self, api_client: APIClient, cpu_prop) -> None:
-        # T009b
         resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_resolve_returns_404_for_unknown_model(self, api_client: APIClient, cpu_prop) -> None:
-        # T010
         resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=nonexistent&object_id=1")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_resolve_returns_400_for_ambiguous_app_label(
         self, api_client: APIClient, cpu_prop
     ) -> None:
-        # C2: results app has multiple models — model_name required
         resp = api_client.get(f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=results&object_id=1")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert "model_name" in resp.data["detail"]
@@ -128,7 +124,6 @@ class TestPerInstanceOverride:
     def test_per_instance_value_overrides_default(
         self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
     ) -> None:
-        # T011: instance A has value=125, default=65 → resolve returns 125
         from properties.models import ExtendedPropertyValue
         ExtendedPropertyValue.objects.create(
             extended_property=cpu_prop, content_type=cpu_ct,
@@ -143,7 +138,6 @@ class TestPerInstanceOverride:
     def test_instance_without_record_gets_default(
         self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
     ) -> None:
-        # T012: instance B (no record) gets default=65
         url = f"{EXT_PROP_URL}{cpu_prop.pk}/resolve/?model=cpu&model_name=cpu&object_id=99998"
         resp = api_client.get(url)
         assert resp.status_code == status.HTTP_200_OK
@@ -153,7 +147,6 @@ class TestPerInstanceOverride:
     def test_updating_default_does_not_affect_per_instance_value(
         self, api_client: APIClient, cpu_prop, cpu_instance: Cpu, cpu_ct: ContentType
     ) -> None:
-        # T013: update default_value, per-instance record still wins
         from properties.models import ExtendedPropertyValue
         ExtendedPropertyValue.objects.create(
             extended_property=cpu_prop, content_type=cpu_ct,
@@ -177,7 +170,6 @@ class TestFormulaDefaultValue:
     def test_formula_property_returns_formula_string_as_default(
         self, api_client: APIClient, cpu_ct: ContentType
     ) -> None:
-        # T014
         from properties.models import ExtendedProperty
         prop = ExtendedProperty.objects.create(
             content_type=cpu_ct, name="Formula Prop", is_formula=True, default_value="A / B"
@@ -191,7 +183,6 @@ class TestFormulaDefaultValue:
     def test_formula_property_null_default_returns_null(
         self, api_client: APIClient, cpu_ct: ContentType
     ) -> None:
-        # T015
         from properties.models import ExtendedProperty
         prop = ExtendedProperty.objects.create(
             content_type=cpu_ct, name="Formula Null Prop", is_formula=True, default_value=None
@@ -204,18 +195,18 @@ class TestFormulaDefaultValue:
 
 
 # ---------------------------------------------------------------------------
-# T021 — FR-005: result-level property resolve
+# Result-level property resolve — now uses content_type binding
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
 class TestResultLevelPropertyResolve:
-    """T021: result-level ExtendedProperty (property_set binding) resolves default_value."""
+    """Result-level ExtendedProperty uses content_type (ResultWorkload) binding."""
 
     def test_result_level_property_resolve_returns_default(self, api_client: APIClient) -> None:
-        from properties.models import ExtendedProperty, ExtendedPropertySet
-        eps = ExtendedPropertySet.objects.create(name="Result Props")
+        from properties.models import ExtendedProperty
+        workload_ct = ContentType.objects.get_for_model(ResultWorkload)
         prop = ExtendedProperty.objects.create(
-            property_set=eps, name="Result Default Prop", default_value="result-default"
+            content_type=workload_ct, name="Result Default Prop", default_value="result-default"
         )
         workload = ResultWorkload.objects.create(name="Host Write", type=1)
         url = (
@@ -228,40 +219,111 @@ class TestResultLevelPropertyResolve:
         assert resp.data["is_default"] is True
 
 
+# ---------------------------------------------------------------------------
+# ExtendedProperty binding — content_type is now always required
+# ---------------------------------------------------------------------------
+
 @pytest.mark.django_db
 class TestExtendedPropertyBinding:
-    """US4: CHECK constraint — exactly one binding must be set."""
+    """content_type is required; property_set field no longer exists."""
 
     def test_entity_level_property_created(
         self, api_client: APIClient, nand_ct: ContentType
     ) -> None:
-        data = {"content_type": nand_ct.pk, "property_set": None, "name": "J per PU"}
+        data = {"content_type": nand_ct.pk, "name": "J per PU"}
         response = api_client.post(EXT_PROP_URL, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
 
-    def test_both_bindings_set_rejected(
+    def test_missing_content_type_rejected(self, api_client: APIClient) -> None:
+        data = {"name": "No Content Type"}
+        response = api_client.post(EXT_PROP_URL, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_null_content_type_rejected(self, api_client: APIClient) -> None:
+        data = {"content_type": None, "name": "Null Content Type"}
+        response = api_client.post(EXT_PROP_URL, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_property_set_field_not_in_response(
         self, api_client: APIClient, nand_ct: ContentType
     ) -> None:
-        from properties.models import ExtendedPropertySet
-        eps = ExtendedPropertySet.objects.create(name="Test Set")
-        data = {
-            "content_type": nand_ct.pk,
-            "property_set": eps.pk,
-            "name": "Invalid Prop",
-        }
-        response = api_client.post(EXT_PROP_URL, data, format="json")
-        # Serializer validate() catches this before DB
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        resp = api_client.post(EXT_PROP_URL, {"content_type": nand_ct.pk, "name": "NoSet"}, format="json")
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert "property_set" not in resp.data
 
-    def test_neither_binding_set_rejected(self, api_client: APIClient) -> None:
-        data = {"content_type": None, "property_set": None, "name": "No Binding"}
-        response = api_client.post(EXT_PROP_URL, data, format="json")
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+# ---------------------------------------------------------------------------
+# ExtendedPropertySetMembership — one property can belong to multiple sets
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestExtendedPropertySetMembership:
+    """A single ExtendedProperty can belong to multiple ExtendedPropertySets."""
+
+    def test_property_in_two_sets(self, api_client: APIClient, cpu_ct: ContentType) -> None:
+        from properties.models import ExtendedProperty, ExtendedPropertySet
+        set_a = ExtendedPropertySet.objects.create(name="Set A")
+        set_b = ExtendedPropertySet.objects.create(name="Set B")
+        prop = ExtendedProperty.objects.create(content_type=cpu_ct, name="SharedProp")
+
+        r1 = api_client.post(EXT_MEMBERSHIP_URL, {
+            "property_set_id": set_a.pk, "extended_property_id": prop.pk, "index": 0,
+        }, format="json")
+        r2 = api_client.post(EXT_MEMBERSHIP_URL, {
+            "property_set_id": set_b.pk, "extended_property_id": prop.pk, "index": 0,
+        }, format="json")
+        assert r1.status_code == status.HTTP_201_CREATED
+        assert r2.status_code == status.HTTP_201_CREATED
+
+        resp_a = api_client.get(f"{EXT_SET_URL}{set_a.pk}/")
+        resp_b = api_client.get(f"{EXT_SET_URL}{set_b.pk}/")
+        prop_ids_a = [item["extended_property"]["id"] for item in resp_a.data["items"]]
+        prop_ids_b = [item["extended_property"]["id"] for item in resp_b.data["items"]]
+        assert prop.pk in prop_ids_a
+        assert prop.pk in prop_ids_b
+
+    def test_duplicate_membership_rejected(self, api_client: APIClient, cpu_ct: ContentType) -> None:
+        from properties.models import ExtendedProperty, ExtendedPropertySet
+        eps = ExtendedPropertySet.objects.create(name="Dup Set")
+        prop = ExtendedProperty.objects.create(content_type=cpu_ct, name="DupProp")
+        data = {"property_set_id": eps.pk, "extended_property_id": prop.pk, "index": 0}
+        assert api_client.post(EXT_MEMBERSHIP_URL, data, format="json").status_code == status.HTTP_201_CREATED
+        assert api_client.post(EXT_MEMBERSHIP_URL, data, format="json").status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_set_filter_returns_only_matching_properties(
+        self, api_client: APIClient, cpu_ct: ContentType
+    ) -> None:
+        from properties.models import ExtendedProperty, ExtendedPropertySet
+        eps = ExtendedPropertySet.objects.create(name="Filter Set")
+        p1 = ExtendedProperty.objects.create(content_type=cpu_ct, name="InSet")
+        p2 = ExtendedProperty.objects.create(content_type=cpu_ct, name="NotInSet")
+        api_client.post(EXT_MEMBERSHIP_URL, {
+            "property_set_id": eps.pk, "extended_property_id": p1.pk, "index": 0,
+        }, format="json")
+
+        resp = api_client.get(f"{EXT_PROP_URL}?set={eps.pk}")
+        ids = [p["id"] for p in resp.data["results"]]
+        assert p1.pk in ids
+        assert p2.pk not in ids
+
+    def test_delete_membership(self, api_client: APIClient, cpu_ct: ContentType) -> None:
+        from properties.models import ExtendedProperty, ExtendedPropertySet
+        eps = ExtendedPropertySet.objects.create(name="Del Set")
+        prop = ExtendedProperty.objects.create(content_type=cpu_ct, name="DelProp")
+        created = api_client.post(EXT_MEMBERSHIP_URL, {
+            "property_set_id": eps.pk, "extended_property_id": prop.pk, "index": 0,
+        }, format="json").data
+        resp = api_client.delete(f"{EXT_MEMBERSHIP_URL}{created['id']}/")
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+
+# ---------------------------------------------------------------------------
+# ExtendedPropertyValueScoping — unchanged behaviour
+# ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
 class TestExtendedPropertyValueScoping:
-    """US4: Per-instance values are scoped to the correct instance."""
+    """Per-instance values are scoped to the correct instance."""
 
     def _make_nand(self) -> Nand:
         return Nand.objects.create(**{
@@ -320,7 +382,6 @@ class TestExtendedPropertyValueScoping:
         nand2 = self._make_nand()
         prop = ExtendedProperty.objects.create(content_type=nand_ct, name="J per PU")
 
-        # Set different values per instance
         api_client.post(EXT_VALUE_URL, {
             "extended_property": prop.pk,
             "content_type": nand_ct.pk,
@@ -334,7 +395,6 @@ class TestExtendedPropertyValueScoping:
             "value": "=A1*B2",
         }, format="json")
 
-        # Each instance returns its own value
         r1 = api_client.get(f"/api/nand/{nand1.pk}/?include=extended_properties")
         r2 = api_client.get(f"/api/nand/{nand2.pk}/?include=extended_properties")
         values1 = [v["value"] for v in r1.data["extended_properties"]]
