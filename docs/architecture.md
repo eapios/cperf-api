@@ -478,49 +478,7 @@ Ordered by -created_at. No PUT/PATCH (immutable after creation).
 
 ## API Design
 
-### Hardware Endpoints
-
-Full CRUD (`ModelViewSet`) for each hardware type.
-
-
-| Endpoint               | Notes                                                |
-| ---------------------- | ---------------------------------------------------- |
-| `/api/nand/`           | Write: flat field names. Read: nested into 6 groups. |
-| `/api/nand-instances/` | Filter: `?nand=<id>`                                 |
-| `/api/nand-perf/`      | Filter: `?nand=<id>`                                 |
-| `/api/cpu/`            |                                                      |
-| `/api/dram/`           |                                                      |
-
-
-**Nand read/write asymmetry**: POST/PUT/PATCH accept flat field names matching the DB columns. GET responses nest fields into groups: `physical`, `endurance`, `raid`, `mapping`, `firmware`, `journal`, plus `pb_per_disk_by_channel`.
-
-**Optional query parameters on all entity detail endpoints**:
-
-- `?config_set=<id>` — includes PropertyConfigSet data in the response; omitted if not provided
-- `?include=extended_properties` — includes per-instance ExtendedPropertyValues; omitted if not provided
-
-### Properties Endpoints
-
-
-| Endpoint                         | Notes                                               |
-| -------------------------------- | --------------------------------------------------- |
-| `/api/property-configs/`         | Filter: `?model=<app_label>` (maps to content_type) |
-| `/api/config-sets/`              |                                                     |
-| `/api/extended-property-sets/`   |                                                     |
-| `/api/extended-properties/`      | Filter: `?model=<app_label>`, `?set=<id>`           |
-| `/api/extended-property-values/` | Filter: `?model=<app_label>`, `?object_id=<id>`     |
-
-
-### Results Endpoints
-
-
-| Endpoint                         | Notes                                                            |
-| -------------------------------- | ---------------------------------------------------------------- |
-| `/api/result-profiles/`          |                                                                  |
-| `/api/result-workloads/`         |                                                                  |
-| `/api/result-profile-workloads/` | Filter: `?profile=<id>`                                          |
-| `/api/result-records/`           | GET, POST, DELETE only (no PUT/PATCH). Ordered by `-created_at`. |
-
+→ See [api.md](api.md) for the full endpoint reference.
 
 **Common configuration across all endpoints:**
 
